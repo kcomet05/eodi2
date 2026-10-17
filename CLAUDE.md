@@ -1,7 +1,7 @@
 # 우리 오늘 어디가 (Eodi) — project notes for Claude
 
 Couples' date-planning web app. Korean UI, mobile-first. Live at https://date-course-kcomet.vercel.app
-(Vercel project `date-course`, team `kcomet`). Production currently runs an OLDER build (Phase 1 only);
+(Vercel project `date-course`, team `kcomet`). Production runs the latest `main`;
 every push to `main` auto-deploys to production via the GitHub integration (repo `kcomet05/eodi2`).
 
 ## Stack
@@ -11,7 +11,7 @@ every push to `main` auto-deploys to production via the GitHub integration (repo
   - `_naver.js` shared Naver Search / DataLab access (API Hub first, developers.naver.com fallback)
   - `search.js`, `nearby.js`, `recommend.js` (course algorithm), `health.js` (key diagnostics)
   - `_db.js` dependency-free Neon client over HTTPS (`POST https://<host>/sql`, header `Neon-Connection-String`)
-  - `weather.js` (KMA getVilageFcst by lat/lng → Lambert grid; 5 min cache header; returns `kma_not_configured` without the key)
+  - `weather.js` (KMA getVilageFcst by lat/lng → Lambert grid; 10 min s-maxage; returns `kma_not_configured` without the key)
   - `couple.js` (couple create/read/update by 8-char invite code), `sync.js` (shared item store)
 - `vercel.json` — function maxDuration only.
 
@@ -36,7 +36,7 @@ Red route line + station circles, Do Hyeon (display) + IBM Plex Sans KR (body), 
 API keys only in Vercel env vars (except Kakao JS key, domain-restricted). Ask the owner before adding paid services.
 
 ## Tests
-`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py && python3 p4.py && python3 p5.py && node weather.test.js && node sync.test.js` (Playwright; mocks all /api routes via `mock.js` + in-memory
+`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py && python3 p4.py && python3 p5.py && python3 p6.py && node weather.test.js && node sync.test.js` (Playwright; mocks all /api routes via `mock.js` + in-memory
 couple/sync). All checks currently pass.
 
 ## Roadmap
@@ -53,5 +53,9 @@ couple/sync). All checks currently pass.
   `photo` items: ONE JPEG thumbnail (≤360px, data URL <24KB so the item stays <30KB) per item `{v:visitId,t,at,by}`, max 12 per visit / 150 total, stored in Neon like any item (free tier). Originals are NOT kept anywhere — chosen to avoid a paid blob store; if full-size photos are wanted, ask the owner about Vercel Blob. Only `data:image/jpeg;base64,` strings are ever rendered.
   `#route` "우리의 노선도": stats, metro-style line of past visits (places visited 2+ times drawn as 환승역), photos, favorites/blocked lists.
   Anniversary suggestion (`#annSug` on home): next special within 60 days with no date planned → course from ≥2 favorites within 3km, ordered 점심→카페→전시→산책→야경→저녁→술, one tap opens it in the planner.
-- Phase 5 drag reorder, geolocation start.
+- Phase 5 — done.
+  Reorder: per-stop ☰ grip (pointer events, works for mouse + touch; `touch-action:none`), ↑/↓ buttons and ArrowUp/Down on the grip for keyboard/screen readers; `moveStop()` re-times everything via `schedule()`.
+  Current-location start: `PLAN.start={lat,lng}` (saved as `visit.start`, restored on edit). It is NOT a stop; it adds the travel leg to the first stop's arrival time and anchors nearby suggestions when the plan is empty (needs a supported neighbourhood within 6km via `nearestArea`, else nearby is hidden). Geolocation is only requested on button tap; denied/out-of-Korea/timeouts show a toast. Rec screen: "📍 내 위치 주변 동네로 추천받기" picks the nearest AREAS entry within 6km.
+  Testing geolocation needs a secure origin: tests use `http://localhost:8123/` (not `t.local`).
+- All 5 phases done. Ideas not started: server-side `/api/recommend` honouring blocked places, full-size photo storage (would need a paid blob store — ask owner), real opening-hours/last-train data.
 Finish, test and report each phase before starting the next.
