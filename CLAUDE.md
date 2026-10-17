@@ -11,11 +11,12 @@ every push to `main` auto-deploys to production via the GitHub integration (repo
   - `_naver.js` shared Naver Search / DataLab access (API Hub first, developers.naver.com fallback)
   - `search.js`, `nearby.js`, `recommend.js` (course algorithm), `health.js` (key diagnostics)
   - `_db.js` dependency-free Neon client over HTTPS (`POST https://<host>/sql`, header `Neon-Connection-String`)
+  - `weather.js` (KMA getVilageFcst by lat/lng → Lambert grid; 5 min cache header; returns `kma_not_configured` without the key)
   - `couple.js` (couple create/read/update by 8-char invite code), `sync.js` (shared item store)
 - `vercel.json` — function maxDuration only.
 
 ## Env vars (set in Vercel dashboard only — never ask for or print values)
-`NAVER_API_KEY_ID`, `NAVER_API_KEY_SECRET`, `DATABASE_URL` (Neon). Without `DATABASE_URL` the APIs return
+`NAVER_API_KEY_ID`, `NAVER_API_KEY_SECRET`, `DATABASE_URL` (Neon), `KMA_SERVICE_KEY` (공공데이터포털 인증키 for 기상청 단기예보 — 활용신청 필요). Without `DATABASE_URL` the APIs return
 `db_not_configured` and the app still works on one phone (shows "공유 저장소가 아직 연결되지 않았어요").
 
 ## Neon tables (already created)
@@ -35,7 +36,7 @@ Red route line + station circles, Do Hyeon (display) + IBM Plex Sans KR (body), 
 API keys only in Vercel env vars (except Kakao JS key, domain-restricted). Ask the owner before adding paid services.
 
 ## Tests
-`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py` (Playwright; mocks all /api routes via `mock.js` + in-memory
+`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py && python3 p4.py && node weather.test.js` (Playwright; mocks all /api routes via `mock.js` + in-memory
 couple/sync). All checks currently pass.
 
 ## Roadmap
@@ -44,7 +45,9 @@ couple/sync). All checks currently pass.
   Share link `/#c=<base64url JSON>` encodes title + stops only (no couple code, notes, or votes); recipient sees a sheet and can load it into the planner.
   Hash input is untrusted: validated (kind whitelist, Korea lat/lng box, ≤12 stops, escaped on render). Native share sheet / copy fallback.
   KakaoTalk share intentionally dropped by the owner — no Kakao JS key needed.
-- Phase 3 live-date mode, weather (ask owner: KMA vs OpenWeather + key), opening hours, last-train note.
+- Phase 3 — done (KMA chosen by owner). Live-date mode (`#live`): home card + day-panel button for today's visit; shows now/next stop from stored stop times (KST, midnight-wrap aware), KMA hourly strip for the course window + rain advisory, per-stop opening hours, last-train note.
+  Opening hours are owner-entered per stop (`stops[i].hours` = `HH:MM-HH:MM`), NOT fetched — Naver search has no hours. Warning if arrival/leave falls outside. Last-train note is a generic heuristic (finish ≥ 23:00 → "check your subway app"); no real timetable data.
+  Weather needs `KMA_SERVICE_KEY` in Vercel; without it live mode still works and says weather isn't connected.
 - Phase 4 diary photos, favorites/blocked, "우리의 노선도" screen, anniversary course suggestions.
 - Phase 5 drag reorder, geolocation start.
 Finish, test and report each phase before starting the next.

@@ -258,6 +258,22 @@ dialog.sheet h2{font-size:22px}
 .vbtn{min-height:44px;min-width:44px;padding:0 14px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--fg);font-size:14px}
 .vbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .vp{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.livebox{background:var(--card);border-radius:16px;padding:14px;margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.livebox h2{margin:0;font-family:var(--display);font-weight:400;font-size:20px;overflow-wrap:anywhere}
+.livebox small,.livebox p{margin:0;font-size:13px;color:var(--muted)}
+.wxrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.wxc{flex:none;min-width:74px;border:2px solid var(--line);border-radius:12px;padding:8px;text-align:center;font-size:12px}
+.wxc b{display:block;font-family:var(--display);font-weight:400;font-size:16px}
+.livel{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.livel li{background:var(--card);border-radius:16px;padding:12px;border:2px solid transparent;display:flex;flex-direction:column;gap:3px}
+.livel li[data-st="now"]{border-color:var(--accent)}
+.livel li[data-st="past"]{opacity:.65}
+.livel b{font-family:var(--display);font-weight:400;font-size:17px;overflow-wrap:anywhere}
+.livel small{color:var(--muted);font-size:12px}
+.livel a{color:var(--accent);font-size:14px;min-height:44px;display:inline-flex;align-items:center}
+.warn{color:var(--accent);font-size:12px}
+.hrs{display:flex;flex-direction:column;gap:2px;margin:4px 0}
+.hrs input{min-height:44px;width:100%}
 .shl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .shl li{display:flex;flex-direction:column;gap:2px}
 .shl b{font-family:var(--display);font-weight:400;font-size:16px;overflow-wrap:anywhere}
@@ -338,6 +354,7 @@ dialog.sheet h2{font-size:22px}
 <span class="dday" id="dday"></span>
 </div>
 <div class="nextsp" id="nextSp" hidden></div>
+<div class="nextsp" id="liveCard" hidden></div>
 <div class="note" id="prefNudge" hidden style="margin-top:6px"></div>
 <div class="actions" style="margin-top:28px">
 <button class="btn primary" type="button" data-go="plan">새 데이트 시작하기</button>
@@ -417,6 +434,13 @@ dialog.sheet h2{font-size:22px}
 <div class="legend"><span><i class="mk-v"></i>데이트 기록</span><span><i class="mk-s"></i>기념일</span><button class="chip sm" type="button" id="calToday">오늘</button></div>
 <div class="daypanel" id="dayPanel" aria-live="polite"></div>
 <div class="daypanel" id="upcoming"></div>
+</section>
+<section id="live" aria-label="데이트 라이브" hidden>
+<button class="back" type="button" data-go="home">← <span id="liveT">오늘 데이트</span></button>
+<div class="livebox" id="liveStatus" aria-live="polite"></div>
+<div class="livebox" id="liveWx"></div>
+<ol class="livel" id="liveList"></ol>
+<div class="livebox"><p id="liveTrain"></p></div>
 </section>
 </main>
 <dialog class="sheet" id="sheet" aria-labelledby="sheetT">
@@ -856,7 +880,7 @@ renderList();renderPicks();draw(performance.now());refit(700);
 }
 function clearAll(){stops=[];renderList();renderPicks();draw(performance.now());refit(800);}
 
-var views=['home','plan','rec','cal','setup'];
+var views=['home','plan','rec','cal','setup','live'];
 function show(id){
 views.forEach(function(v){$(v).hidden=(v!==id);});
 window.scrollTo(0,0);
@@ -869,6 +893,7 @@ ensureMap();
 }
 if(id==='rec')loadRec();
 if(id==='cal')renderCal();
+if(id==='live')openLive();
 }
 /* ---- shared data: prefs, saved dates ("visit"), special dates. Items sync through /api/sync, last write wins ---- */
 var PLAN={editId:null,date:'',title:'',note:''};
@@ -907,7 +932,7 @@ if(DSYNC.again||Object.keys(DATA.dirty).length){DSYNC.again=false;if(batch.lengt
 }).catch(function(){DSYNC.busy=false;setSync('off');});
 }
 function renderData(){
-renderNextSp();renderNudge();
+renderNextSp();renderNudge();renderLiveCard();if(!$('live').hidden)renderLive();
 if(!$('cal').hidden){var a=document.activeElement;if(a&&a.classList&&a.classList.contains('note-in'))CAL.stale=true;else renderCal();}
 if(!$('plan').hidden)renderBudget();
 }
@@ -1031,13 +1056,13 @@ $('saveInfo').textContent=stops.length+'곳 · 예상 비용 '+won(tot)+(PLAN.ed
 openDlg('saveSheet');
 }
 function visitBody(date,title,note){
-return {date:date,title:title,note:note,by:CP?CP.me:0,tm:{s:TM.s,e:TM.e},stops:stops.map(function(s,i){var t=stopTime(i);return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,stay:t.stay,time:t.time,until:t.until,cost:costOf(s),note:s.note||'',votes:s.votes||{}};})};
+return {date:date,title:title,note:note,by:CP?CP.me:0,tm:{s:TM.s,e:TM.e},stops:stops.map(function(s,i){var t=stopTime(i);return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,stay:t.stay,time:t.time,until:t.until,cost:costOf(s),note:s.note||'',votes:s.votes||{},hours:s.hours||''};})};
 }
 function editVisit(id){
 var it=DATA.E[id],v=it&&it.body;if(!v||v.deleted)return;
 demoToken++;
 PLAN={editId:id,date:v.date,title:v.title||'',note:v.note||''};
-stops=(v.stops||[]).map(function(s){return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,x:wx(s.lng),y:wy(s.lat),time:s.time||'',stay:s.stay||0,cost:s.cost,note:s.note||'',votes:s.votes||{},born:performance.now()-5000};});
+stops=(v.stops||[]).map(function(s){return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,x:wx(s.lng),y:wy(s.lat),time:s.time||'',stay:s.stay||0,cost:s.cost,note:s.note||'',votes:s.votes||{},hours:s.hours||'',born:performance.now()-5000};});
 if(v.tm&&v.tm.e>v.tm.s){TM.s=v.tm.s;TM.e=v.tm.e;syncTime();}
 $('planTitle').textContent=(v.title||'데이트')+' 고치기';
 show('plan');
@@ -1089,6 +1114,104 @@ $('shInfo').textContent=sc.stops.length+'곳 · 예상 비용 '+won(tot);
 $('shList').innerHTML=sc.stops.map(function(s,i){return '<li><b>'+(i+1)+'. '+esc(s.name)+'</b><small>'+esc(s.kind)+(s.area?' · '+esc(s.area):'')+' · '+won(s.cost)+'</small></li>';}).join('');
 openDlg('shareSheet');
 }
+/* ---- live-date mode: where we are in today's course, KMA weather, opening hours, last-train note ---- */
+var LIVE={id:'',wx:null,wxKey:'',wxAt:0,loading:false};
+var WX_SKY={1:'맑음',3:'구름 많음',4:'흐림'},WX_PTY={1:'비',2:'비/눈',3:'눈',4:'소나기'};
+function normHours(v){
+v=String(v||'').trim();if(!v)return '';
+var m=v.match(/^(\d{1,2}):(\d{2})\s*[-~]\s*(\d{1,2}):(\d{2})$/);if(!m)return null;
+var a=+m[1],b=+m[2],c=+m[3],d=+m[4];
+if(a>23||c>24||b>59||d>59||(c===24&&d>0))return null;
+return ('0'+a).slice(-2)+':'+m[2]+'-'+('0'+c).slice(-2)+':'+m[4];
+}
+function hoursWarn(s){
+var h=normHours(s.hours);if(!h)return '';
+var o=parseT(h.slice(0,5)),c=parseT(h.slice(6)),a=parseT(s.time),d=parseT(s.until);
+if(isNaN(a))return '';
+if(c<=o)c+=1440;
+if(isNaN(d)||d<a)d=a;
+if(a<o||d>c)return '<span class="warn">⚠ 영업시간('+h.slice(0,5)+'~'+h.slice(6)+') 밖일 수 있어요</span>';
+return '';
+}
+function nowMin(){var k=new Date(Date.now()+9*3600e3);return k.getUTCHours()*60+k.getUTCMinutes();}
+function liveVisit(){var it=DATA.E[LIVE.id],v=it&&it.body;return v&&!v.deleted&&v.date===kstToday()?v:null;}
+function todayVisit(){var l=visitsOn(kstToday());return l.length?l[0]:null;}
+function renderLiveCard(){
+var box=$('liveCard');if(!box)return;
+var v=CP?todayVisit():null;
+if(!v||!(v.stops||[]).length){box.hidden=true;return;}
+box.hidden=false;
+box.innerHTML='<button type="button" class="tx" data-golive="'+esc(v.id)+'" aria-label="오늘 데이트 '+esc(v.title||'데이트')+' 라이브 보기"><b>오늘 데이트 · '+esc(v.title||'데이트')+'</b><small>'+v.stops.length+'곳 · 지금 어디쯤인지 보기</small></button>';
+}
+function liveTimes(v){
+var out=[],last=-1;
+(v.stops||[]).forEach(function(s){
+var a=parseT(s.time),d=parseT(s.until);
+if(isNaN(a)){out.push(null);return;}
+if(a<last)a+=1440;
+if(isNaN(d)||d<a)d=a+(s.stay||60);
+out.push({a:a,d:d});last=d;
+});
+return out;
+}
+function trainNote(v,tt){
+var e=-1;tt.forEach(function(x){if(x&&x.d>e)e=x.d;});
+if(e<0)return '';
+if(e>=1380)return '마무리가 '+mm(e)+'쯤이에요. 지하철·버스 막차가 끊길 수 있어요. 출발 전에 지하철 앱으로 막차 시간을 확인해 주세요. (노선마다 달라서 정확한 막차 시간은 알려드리지 못해요)';
+return '마무리는 '+mm(e)+'쯤이라 막차 걱정은 크지 않을 거예요.';
+}
+function wxIcon(h){return h.pty?(WX_PTY[h.pty]||'비'):(WX_SKY[h.sky]||'');}
+function renderWx(v,tt){
+var box=$('liveWx');
+if(LIVE.wx==='off'){box.innerHTML='<h2>날씨</h2><p>날씨 서비스(기상청)가 아직 연결되지 않았어요. Vercel에 KMA_SERVICE_KEY를 넣으면 보여요.</p>';return;}
+if(LIVE.wx==='err'){box.innerHTML='<h2>날씨</h2><p>날씨를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>';return;}
+if(!LIVE.wx){box.innerHTML='<h2>날씨</h2><p>'+(LIVE.loading?'기상청 예보를 불러오는 중이에요…':'')+'</p>';return;}
+var first=-1,e=-1;tt.forEach(function(x){if(x){if(first<0||x.a<first)first=x.a;if(x.d>e)e=x.d;}});
+var day=kstToday().replace(/-/g,''),from=Math.floor((first<0?0:first)/60)*60,to=Math.ceil((e<0?1440:e)/60)*60;
+var list=LIVE.wx.filter(function(h){var m=(+h.t.slice(0,2))*60;return h.d===day&&m>=from&&m<=Math.min(to,1380);}).slice(0,10);
+if(!list.length){box.innerHTML='<h2>날씨</h2><p>이 시간대 예보가 아직 없어요.</p>';return;}
+var rain=list.some(function(h){return h.pty>0||(h.pop!=null&&h.pop>=60);});
+box.innerHTML='<h2>날씨 <small>기상청 단기예보</small></h2><div class="wxrow">'+list.map(function(h){return '<div class="wxc"><b>'+(+h.t.slice(0,2))+'시</b>'+esc(wxIcon(h))+'<br>'+(h.tmp!=null?h.tmp+'°':'')+'<br>강수 '+(h.pop!=null?h.pop:'-')+'%</div>';}).join('')+'</div>'+(rain?'<p class="warn">☂ 비 소식이 있어요. 우산을 챙기고 실내 코스를 고려해 보세요.</p>':'<p>우산 걱정은 크지 않아 보여요.</p>');
+}
+function renderLive(){
+var v=liveVisit();
+if(!v){$('liveStatus').innerHTML='<h2>오늘 데이트가 없어요</h2><p>캘린더에서 오늘 날짜에 데이트를 만들면 여기에서 볼 수 있어요.</p>';$('liveList').innerHTML='';$('liveWx').innerHTML='';$('liveTrain').textContent='';$('liveT').textContent='오늘 데이트';return;}
+var tt=liveTimes(v),n=nowMin(),st=v.stops||[],cur=-1,nxt=-1,e=-1,i;
+tt.forEach(function(x){if(x&&x.d>e)e=x.d;});
+var a0=tt[0]?tt[0].a:0;
+if(e>=1440&&n<=e-1440)n+=1440;
+for(i=0;i<st.length;i++){if(!tt[i])continue;if(tt[i].a<=n&&n<tt[i].d){cur=i;break;}if(tt[i].a>n){nxt=i;break;}}
+var msg,sub='';
+if(!tt.some(Boolean)){msg='시간이 정해지지 않았어요';sub='캘린더에서 코스를 고쳐 시간을 정해 주세요.';}
+else if(cur>=0){msg='지금 '+st[cur].name;sub=mm(tt[cur].a)+' ~ '+mm(tt[cur].d)+(cur+1<st.length&&tt[cur+1]?' · 다음 '+st[cur+1].name+' '+mm(tt[cur+1].a)+' 도착 예정':' · 마지막 장소예요');}
+else if(nxt>=0){var w=tt[nxt].a-n;msg=(nxt===0?'시작 전 · ':'이동 중 · ')+st[nxt].name+' '+(w>=60?Math.floor(w/60)+'시간 '+(w%60)+'분':w+'분')+' 뒤 도착';sub=mm(tt[nxt].a)+' 도착 예정';}
+else{msg='오늘 데이트가 끝났어요';sub='집에 조심히 들어가세요 ♥';}
+$('liveT').textContent=v.title||'오늘 데이트';
+$('liveStatus').innerHTML='<h2>'+esc(msg)+'</h2><small>'+esc(sub)+'</small><small>지금 '+mm(nowMin())+'</small>';
+$('liveList').innerHTML=st.map(function(s,i){
+var state=i===cur?'now':((tt[i]&&n>=tt[i].d)?'past':'next'),lbl=state==='now'?'지금':(state==='past'?'지나감':'예정');
+return '<li data-st="'+state+'"><b>'+(i+1)+'. '+esc(s.name)+'</b><small>'+lbl+' · '+esc(s.time||'')+(s.until?' ~ '+esc(s.until):'')+' · '+esc(s.kind)+'</small>'+hoursWarn(s)+(s.hours?'<small>영업시간 '+esc(s.hours)+'</small>':'')+'<a href="https://map.naver.com/p/search/'+encodeURIComponent(s.name)+'" target="_blank" rel="noopener noreferrer">네이버 지도에서 보기</a></li>';
+}).join('');
+$('liveTrain').textContent=trainNote(v,tt);
+renderWx(v,tt);
+}
+function loadWx(v){
+var s0=v&&(v.stops||[])[0];if(!s0||!isFinite(s0.lat)||!isFinite(s0.lng))return;
+var key=s0.lat.toFixed(2)+','+s0.lng.toFixed(2);
+if(LIVE.wxKey===key&&LIVE.wx&&LIVE.wx!=='err'&&Date.now()-LIVE.wxAt<30*60e3)return;
+LIVE.wxKey=key;LIVE.loading=true;if(!LIVE.wx||LIVE.wx==='err')LIVE.wx=null;
+fetch('/api/weather?lat='+s0.lat+'&lng='+s0.lng).then(function(r){return r.ok?r.json():Promise.reject(new Error('http'));}).then(function(j){
+LIVE.loading=false;
+if(j&&j.ok){LIVE.wx=j.hours||[];LIVE.wxAt=Date.now();}
+else LIVE.wx=(j&&j.reason==='kma_not_configured')?'off':'err';
+if(!$('live').hidden)renderLive();
+}).catch(function(){LIVE.loading=false;LIVE.wx='err';if(!$('live').hidden)renderLive();});
+}
+function openLive(){
+if(!liveVisit()){var t=todayVisit();LIVE.id=t?t.id:'';}
+renderLive();loadWx(liveVisit());
+}
+setInterval(function(){if(!$('live').hidden&&!document.hidden)renderLive();renderLiveCard();},30000);
 /* calendar */
 var CAL={m:'',sel:'',armed:'',stale:false};
 function monthShift(n){var y=+CAL.m.slice(0,4),m=+CAL.m.slice(5,7)-1+n;y+=Math.floor(m/12);m=((m%12)+12)%12;CAL.m=y+'-'+('0'+(m+1)).slice(-2);}
@@ -1124,10 +1247,10 @@ vs.forEach(function(v){
 var st=d<t?'다녀온 데이트':(d===t?'오늘 데이트':'예정된 데이트');
 h+='<article class="vcard"><h4>'+esc(v.title||'데이트')+'</h4><p class="sub2">'+st+' · '+(v.stops||[]).length+'곳 · 비용 '+won(vTotal(v))+(v.by===0||v.by===1?(CP?' · '+esc(CP.names[v.by])+' 기록':''):'')+'</p><ol class="vstops">';
 (v.stops||[]).forEach(function(s,i){
-h+='<li class="vstop"><span class="n">'+(i+1)+'</span><div><b>'+esc(s.name)+'</b><small>'+esc(s.time||'')+(s.until?' ~ '+esc(s.until):'')+' · '+esc(s.kind)+' · '+won(s.cost)+'</small>'+voteHTML(v,s,i)+'<label class="sr" for="sn-'+esc(v.id)+'-'+i+'">'+esc(s.name)+' 메모</label><textarea class="note-in" id="sn-'+esc(v.id)+'-'+i+'" rows="2" maxlength="300" data-snote="'+esc(v.id)+'|'+i+'" placeholder="이 장소 메모 (예: 파스타가 맛있었어요)">'+esc(s.note||'')+'</textarea></div></li>';
+h+='<li class="vstop"><span class="n">'+(i+1)+'</span><div><b>'+esc(s.name)+'</b><small>'+esc(s.time||'')+(s.until?' ~ '+esc(s.until):'')+' · '+esc(s.kind)+' · '+won(s.cost)+'</small>'+hoursWarn(s)+voteHTML(v,s,i)+'<div class="hrs"><label for="sh-'+esc(v.id)+'-'+i+'">영업시간 (선택)</label><input class="note-in" id="sh-'+esc(v.id)+'-'+i+'" type="text" inputmode="numeric" maxlength="11" data-shours="'+esc(v.id)+'|'+i+'" value="'+esc(s.hours||'')+'" placeholder="예: 10:00-21:00"></div><label class="sr" for="sn-'+esc(v.id)+'-'+i+'">'+esc(s.name)+' 메모</label><textarea class="note-in" id="sn-'+esc(v.id)+'-'+i+'" rows="2" maxlength="300" data-snote="'+esc(v.id)+'|'+i+'" placeholder="이 장소 메모 (예: 파스타가 맛있었어요)">'+esc(s.note||'')+'</textarea></div></li>';
 });
 h+='</ol><label for="vn-'+esc(v.id)+'">이 날의 메모</label><textarea class="note-in" id="vn-'+esc(v.id)+'" rows="3" maxlength="1000" data-vnote="'+esc(v.id)+'" placeholder="오늘 하루는 어땠나요?">'+esc(v.note||'')+'</textarea>'+
-'<div class="row"><button type="button" class="btn ghost small" data-editv="'+esc(v.id)+'" aria-label="코스 고치기, 장소 추가">코스 고치기</button><button type="button" class="btn ghost small" data-sharev="'+esc(v.id)+'">링크 공유</button></div><button type="button" class="danger" data-delv="'+esc(v.id)+'">'+(CAL.armed===v.id?'정말 지울까요?':'삭제')+'</button></article>';
+'<div class="row"><button type="button" class="btn ghost small" data-editv="'+esc(v.id)+'" aria-label="코스 고치기, 장소 추가">코스 고치기</button><button type="button" class="btn ghost small" data-sharev="'+esc(v.id)+'">링크 공유</button></div>'+(d===t?'<button type="button" class="btn primary small" data-golive="'+esc(v.id)+'">오늘 데이트 라이브 보기</button>':'')+'<button type="button" class="danger" data-delv="'+esc(v.id)+'">'+(CAL.armed===v.id?'정말 지울까요?':'삭제')+'</button></article>';
 });
 if(!vs.length)h+='<p class="syncnote">'+(d<t?'이 날의 데이트 기록이 아직 없어요. 다녀온 곳을 남겨 보세요.':'아직 계획한 데이트가 없어요.')+'</p>';
 h+='<div class="row"><button type="button" class="btn primary small" data-newday="'+d+'">'+(d<t?'다녀온 곳 기록':'데이트 만들기')+'</button><button type="button" class="btn ghost small" data-recday="'+d+'">코스 추천받기</button></div><button type="button" class="btn ghost small" data-addsp="'+d+'">＋ 이 날을 기념일로 추가</button>';
@@ -1155,6 +1278,12 @@ $('calToday').addEventListener('click',function(){CAL.m='';CAL.sel='';CAL.armed=
 $('cal').addEventListener('change',function(e){
 var t=e.target,k;
 if((k=t.getAttribute&&t.getAttribute('data-vnote'))){var it=DATA.E[k];if(!it||!it.body||it.body.deleted)return;var b=JSON.parse(JSON.stringify(it.body));b.note=t.value.slice(0,1000);putItem('visit',k,b);toast('메모를 저장했어요');return;}
+if((k=t.getAttribute&&t.getAttribute('data-shours'))){
+var ph=k.split('|'),it3=DATA.E[ph[0]];if(!it3||!it3.body||it3.body.deleted||!it3.body.stops[+ph[1]])return;
+var hv=normHours(t.value);
+if(hv===null){toast('영업시간은 10:00-21:00 처럼 적어 주세요');t.value=it3.body.stops[+ph[1]].hours||'';return;}
+var b3=JSON.parse(JSON.stringify(it3.body));b3.stops[+ph[1]].hours=hv;putItem('visit',ph[0],b3);t.value=hv;renderCal();toast(hv?'영업시간을 저장했어요':'영업시간을 지웠어요');return;
+}
 if((k=t.getAttribute&&t.getAttribute('data-snote'))){var p=k.split('|'),it2=DATA.E[p[0]];if(!it2||!it2.body||it2.body.deleted||!it2.body.stops[+p[1]])return;var b2=JSON.parse(JSON.stringify(it2.body));b2.stops[+p[1]].note=t.value.slice(0,300);putItem('visit',p[0],b2);toast('메모를 저장했어요');}
 });
 $('cal').addEventListener('focusout',function(){if(CAL.stale)setTimeout(function(){var a=document.activeElement;if(CAL.stale&&!(a&&a.classList&&a.classList.contains('note-in')))renderCal();},0);});
@@ -1205,6 +1334,7 @@ if((el=t.closest('[data-newday]'))){v=el.getAttribute('data-newday');startPlan(v
 if((el=t.closest('[data-recday]'))){PLAN={editId:null,date:el.getAttribute('data-recday'),title:'',note:''};show('rec');return;}
 if((el=t.closest('[data-addsp]'))){openSp(el.getAttribute('data-addsp'));return;}
 if((el=t.closest('[data-editv]'))){editVisit(el.getAttribute('data-editv'));return;}
+if((el=t.closest('[data-golive]'))){LIVE.id=el.getAttribute('data-golive');show('live');return;}
 if((el=t.closest('[data-vote]'))){castVote(el.getAttribute('data-vote'));return;}
 if((el=t.closest('[data-sharev]'))){shareVisit(el.getAttribute('data-sharev'));return;}
 if((el=t.closest('[data-delv]'))){
@@ -1406,6 +1536,7 @@ var m=location.search.match(/[?&]join=([A-Za-z0-9]{8})(?![A-Za-z0-9])/),jc=m?m[1
 if(m){try{history.replaceState(null,'',location.pathname);}catch(e){}}
 if(!CP){openSetup(!!jc);if(jc){$('jcode').value=jc;joinWith(jc);}}
 else{renderCP();renderInvite();setTimeout(syncCP,300);}
+renderLiveCard();
 var sc=parseShare(location.hash);
 if(location.hash.indexOf('#c=')===0){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}}
 if(sc)setTimeout(function(){openShared(sc);},0);
