@@ -25,8 +25,8 @@ every push to `main` auto-deploys to production via the GitHub integration (repo
 
 ## Data model (client)
 localStorage: `dc_couple`, `dc_data` = `{E:{id:{kind,u,body}}, dirty:{id:1}, since}`, `dc_tm`, `dc_area`, `dc_recent`.
-Items kind = `visit` | `special` | `prefs`; last-write-wins by `u` (client ms); deletes are tombstones `{deleted:true}`.
-`/api/sync` POST `{code, since, items}` (≤100 items, body <30KB) → returns items with `u>since` + `now`.
+Items kind = `visit` | `special` | `prefs` | `place` | `photo`; last-write-wins by `u` (client ms); deletes are tombstones `{deleted:true}`.
+`/api/sync` POST `{code, since, items}` (≤100 items, body <30KB) → returns items with `u>since` + `now`. Replies are paged at ~3MB (Vercel's limit is 4.5MB): `more:true,last:<u>` → client advances `since` to `last-1` and syncs again.
 Auto special dates from `since` (day 1 = since): 100…1000 days, 1500/2000/2500/3000 days, 1–40주년, plus seasonal
 (1/1, 2/14, 3/14, 5/14, 11/11, 12/24, 12/25). Custom specials can repeat yearly.
 
@@ -36,7 +36,7 @@ Red route line + station circles, Do Hyeon (display) + IBM Plex Sans KR (body), 
 API keys only in Vercel env vars (except Kakao JS key, domain-restricted). Ask the owner before adding paid services.
 
 ## Tests
-`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py && python3 p4.py && node weather.test.js` (Playwright; mocks all /api routes via `mock.js` + in-memory
+`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py && python3 p4.py && python3 p5.py && node weather.test.js && node sync.test.js` (Playwright; mocks all /api routes via `mock.js` + in-memory
 couple/sync). All checks currently pass.
 
 ## Roadmap
@@ -48,6 +48,10 @@ couple/sync). All checks currently pass.
 - Phase 3 — done (KMA chosen by owner). Live-date mode (`#live`): home card + day-panel button for today's visit; shows now/next stop from stored stop times (KST, midnight-wrap aware), KMA hourly strip for the course window + rain advisory, per-stop opening hours, last-train note.
   Opening hours are owner-entered per stop (`stops[i].hours` = `HH:MM-HH:MM`), NOT fetched — Naver search has no hours. Warning if arrival/leave falls outside. Last-train note is a generic heuristic (finish ≥ 23:00 → "check your subway app"); no real timetable data.
   Weather needs `KMA_SERVICE_KEY` in Vercel; without it live mode still works and says weather isn't connected.
-- Phase 4 diary photos, favorites/blocked, "우리의 노선도" screen, anniversary course suggestions.
+- Phase 4 — done.
+  `place` items (id `pl`+hash(name+lat/lng 3dp)): body `{name,kind,area,lat,lng,mark:'fav'|'block'}`; ★/🚫 buttons in plan list and calendar day panel. Blocked places are hidden from nearby/insert suggestions (search results still show them, labelled "제외한 곳"); the server `/api/recommend` does not know about blocks.
+  `photo` items: ONE JPEG thumbnail (≤360px, data URL <24KB so the item stays <30KB) per item `{v:visitId,t,at,by}`, max 12 per visit / 150 total, stored in Neon like any item (free tier). Originals are NOT kept anywhere — chosen to avoid a paid blob store; if full-size photos are wanted, ask the owner about Vercel Blob. Only `data:image/jpeg;base64,` strings are ever rendered.
+  `#route` "우리의 노선도": stats, metro-style line of past visits (places visited 2+ times drawn as 환승역), photos, favorites/blocked lists.
+  Anniversary suggestion (`#annSug` on home): next special within 60 days with no date planned → course from ≥2 favorites within 3km, ordered 점심→카페→전시→산책→야경→저녁→술, one tap opens it in the planner.
 - Phase 5 drag reorder, geolocation start.
 Finish, test and report each phase before starting the next.

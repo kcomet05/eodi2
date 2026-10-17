@@ -1,7 +1,8 @@
 // /api/sync  POST {code, since, items:[{id,kind,u,body}]} -> upserts newer items, returns every item changed after `since`.
 // Last write wins per item (u = client timestamp in ms). Deleted items are kept as {deleted:true} so the partner's phone learns about it.
 const D = require('./_db');
-const KINDS = ['visit', 'special', 'prefs'];
+const KINDS = ['visit', 'special', 'prefs', 'place', 'photo'];
+const MAX_REPLY = 3000000; // Vercel caps a function response at 4.5MB; photos are ~25KB each, so page the reply
 
 module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -29,7 +30,15 @@ module.exports = async function handler(req, res) {
       );
     }
     const rows = await D.query('select id, kind, u, body from entries where couple_code=$1 and u>$2 order by u limit 500', [code, since]);
-    return res.status(200).json({ ok: true, now, items: rows.map((r) => ({ id: r.id, kind: r.kind, u: Number(r.u), body: r.body })) });
+    let size = 0, cut = rows.length;
+    for (let i = 0; i < rows.length; i++) {
+      size += JSON.stringify(rows[i].body).length + 80;
+      if (size > MAX_REPLY && i > 0) { cut = i; break; }
+    }
+    const page = rows.slice(0, cut);
+    const out = { ok: true, now, items: page.map((r) => ({ id: r.id, kind: r.kind, u: Number(r.u), body: r.body })) };
+    if (cut < rows.length) { out.more = true; out.last = Number(page[page.length - 1].u); }
+    return res.status(200).json(out);
   } catch (e) {
     return res.status(200).json({ ok: false, reason: String((e && e.message) || e).slice(0, 120) });
   }
