@@ -1115,7 +1115,7 @@ $('shList').innerHTML=sc.stops.map(function(s,i){return '<li><b>'+(i+1)+'. '+esc
 openDlg('shareSheet');
 }
 /* ---- live-date mode: where we are in today's course, KMA weather, opening hours, last-train note ---- */
-var LIVE={id:'',wx:null,wxKey:'',wxAt:0,loading:false};
+var LV={id:'',wx:null,wxKey:'',wxAt:0,loading:false};
 var WX_SKY={1:'맑음',3:'구름 많음',4:'흐림'},WX_PTY={1:'비',2:'비/눈',3:'눈',4:'소나기'};
 function normHours(v){
 v=String(v||'').trim();if(!v)return '';
@@ -1134,7 +1134,7 @@ if(a<o||d>c)return '<span class="warn">⚠ 영업시간('+h.slice(0,5)+'~'+h.sli
 return '';
 }
 function nowMin(){var k=new Date(Date.now()+9*3600e3);return k.getUTCHours()*60+k.getUTCMinutes();}
-function liveVisit(){var it=DATA.E[LIVE.id],v=it&&it.body;return v&&!v.deleted&&v.date===kstToday()?v:null;}
+function liveVisit(){var it=DATA.E[LV.id],v=it&&it.body;return v&&!v.deleted&&v.date===kstToday()?v:null;}
 function todayVisit(){var l=visitsOn(kstToday());return l.length?l[0]:null;}
 function renderLiveCard(){
 var box=$('liveCard');if(!box)return;
@@ -1163,12 +1163,12 @@ return '마무리는 '+mm(e)+'쯤이라 막차 걱정은 크지 않을 거예요
 function wxIcon(h){return h.pty?(WX_PTY[h.pty]||'비'):(WX_SKY[h.sky]||'');}
 function renderWx(v,tt){
 var box=$('liveWx');
-if(LIVE.wx==='off'){box.innerHTML='<h2>날씨</h2><p>날씨 서비스(기상청)가 아직 연결되지 않았어요. Vercel에 KMA_SERVICE_KEY를 넣으면 보여요.</p>';return;}
-if(LIVE.wx==='err'){box.innerHTML='<h2>날씨</h2><p>날씨를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>';return;}
-if(!LIVE.wx){box.innerHTML='<h2>날씨</h2><p>'+(LIVE.loading?'기상청 예보를 불러오는 중이에요…':'')+'</p>';return;}
+if(LV.wx==='off'){box.innerHTML='<h2>날씨</h2><p>날씨 서비스(기상청)가 아직 연결되지 않았어요. Vercel에 KMA_SERVICE_KEY를 넣으면 보여요.</p>';return;}
+if(LV.wx==='err'){box.innerHTML='<h2>날씨</h2><p>날씨를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>';return;}
+if(!LV.wx){box.innerHTML='<h2>날씨</h2><p>'+(LV.loading?'기상청 예보를 불러오는 중이에요…':'')+'</p>';return;}
 var first=-1,e=-1;tt.forEach(function(x){if(x){if(first<0||x.a<first)first=x.a;if(x.d>e)e=x.d;}});
 var day=kstToday().replace(/-/g,''),from=Math.floor((first<0?0:first)/60)*60,to=Math.ceil((e<0?1440:e)/60)*60;
-var list=LIVE.wx.filter(function(h){var m=(+h.t.slice(0,2))*60;return h.d===day&&m>=from&&m<=Math.min(to,1380);}).slice(0,10);
+var list=LV.wx.filter(function(h){var m=(+h.t.slice(0,2))*60;return h.d===day&&m>=from&&m<=Math.min(to,1380);}).slice(0,10);
 if(!list.length){box.innerHTML='<h2>날씨</h2><p>이 시간대 예보가 아직 없어요.</p>';return;}
 var rain=list.some(function(h){return h.pty>0||(h.pop!=null&&h.pop>=60);});
 box.innerHTML='<h2>날씨 <small>기상청 단기예보</small></h2><div class="wxrow">'+list.map(function(h){return '<div class="wxc"><b>'+(+h.t.slice(0,2))+'시</b>'+esc(wxIcon(h))+'<br>'+(h.tmp!=null?h.tmp+'°':'')+'<br>강수 '+(h.pop!=null?h.pop:'-')+'%</div>';}).join('')+'</div>'+(rain?'<p class="warn">☂ 비 소식이 있어요. 우산을 챙기고 실내 코스를 고려해 보세요.</p>':'<p>우산 걱정은 크지 않아 보여요.</p>');
@@ -1198,17 +1198,17 @@ renderWx(v,tt);
 function loadWx(v){
 var s0=v&&(v.stops||[])[0];if(!s0||!isFinite(s0.lat)||!isFinite(s0.lng))return;
 var key=s0.lat.toFixed(2)+','+s0.lng.toFixed(2);
-if(LIVE.wxKey===key&&LIVE.wx&&LIVE.wx!=='err'&&Date.now()-LIVE.wxAt<30*60e3)return;
-LIVE.wxKey=key;LIVE.loading=true;if(!LIVE.wx||LIVE.wx==='err')LIVE.wx=null;
+if(LV.wxKey===key&&LV.wx&&LV.wx!=='err'&&Date.now()-LV.wxAt<30*60e3)return;
+LV.wxKey=key;LV.loading=true;if(!LV.wx||LV.wx==='err')LV.wx=null;
 fetch('/api/weather?lat='+s0.lat+'&lng='+s0.lng).then(function(r){return r.ok?r.json():Promise.reject(new Error('http'));}).then(function(j){
-LIVE.loading=false;
-if(j&&j.ok){LIVE.wx=j.hours||[];LIVE.wxAt=Date.now();}
-else LIVE.wx=(j&&j.reason==='kma_not_configured')?'off':'err';
+LV.loading=false;
+if(j&&j.ok){LV.wx=j.hours||[];LV.wxAt=Date.now();}
+else LV.wx=(j&&j.reason==='kma_not_configured')?'off':'err';
 if(!$('live').hidden)renderLive();
-}).catch(function(){LIVE.loading=false;LIVE.wx='err';if(!$('live').hidden)renderLive();});
+}).catch(function(){LV.loading=false;LV.wx='err';if(!$('live').hidden)renderLive();});
 }
 function openLive(){
-if(!liveVisit()){var t=todayVisit();LIVE.id=t?t.id:'';}
+if(!liveVisit()){var t=todayVisit();LV.id=t?t.id:'';}
 renderLive();loadWx(liveVisit());
 }
 setInterval(function(){if(!$('live').hidden&&!document.hidden)renderLive();renderLiveCard();},30000);
@@ -1334,7 +1334,7 @@ if((el=t.closest('[data-newday]'))){v=el.getAttribute('data-newday');startPlan(v
 if((el=t.closest('[data-recday]'))){PLAN={editId:null,date:el.getAttribute('data-recday'),title:'',note:''};show('rec');return;}
 if((el=t.closest('[data-addsp]'))){openSp(el.getAttribute('data-addsp'));return;}
 if((el=t.closest('[data-editv]'))){editVisit(el.getAttribute('data-editv'));return;}
-if((el=t.closest('[data-golive]'))){LIVE.id=el.getAttribute('data-golive');show('live');return;}
+if((el=t.closest('[data-golive]'))){LV.id=el.getAttribute('data-golive');show('live');return;}
 if((el=t.closest('[data-vote]'))){castVote(el.getAttribute('data-vote'));return;}
 if((el=t.closest('[data-sharev]'))){shareVisit(el.getAttribute('data-sharev'));return;}
 if((el=t.closest('[data-delv]'))){
