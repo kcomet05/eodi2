@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/recommend.js": { "maxDuration": 30 },
+    "api/nearby.js": { "maxDuration": 20 },
+    "api/search.js": { "maxDuration": 15 },
+    "api/health.js": { "maxDuration": 15 },
+    "api/couple.js": { "maxDuration": 15 },
+    "api/sync.js": { "maxDuration": 15 }
+  }
+}
