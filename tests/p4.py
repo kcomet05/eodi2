@@ -54,7 +54,7 @@ with sync_playwright() as p:
     b,pg=mk(p,visit(),at(11,30),{'ok':False,'reason':'kma_error'}); pg.click('#liveCard [data-golive]'); pg.wait_for_timeout(500)
     ok('불러오지 못했어요' in pg.inner_text('#liveWx'),'weather error message'); b.close()
     # opening hours: input, validation, warning, persistence
-    b,pg=mk(p,visit(),at(11,30),WX); pg.click('#home [data-go="cal"]'); pg.wait_for_timeout(400)
+    b,pg=mk(p,visit(),at(11,30),WX); pg.click('#tabs [data-go="cal"]'); pg.wait_for_timeout(400)
     ok(pg.locator('[data-shours]').count()==2,'hours input per stop')
     pg.fill('[data-shours="v1|0"]','12:00-21:00'); pg.keyboard.press('Tab'); pg.wait_for_timeout(300)
     ok('영업시간(12:00~21:00) 밖' in pg.inner_text('.vstops'),'warns: 11:00 arrival before opening')

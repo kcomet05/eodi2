@@ -28,7 +28,7 @@ def store(pg): return json.loads(pg.evaluate("localStorage.getItem('dc_data')"))
 PAST={'v1':{'kind':'visit','u':1,'body':visit(D(-10),'첫 성수',[CAFE,EXH])},'v2':{'kind':'visit','u':1,'body':visit(D(-3),'다시 성수',[CAFE,DIN])},'v3':{'kind':'visit','u':1,'body':visit(D(5),'다음 데이트',[stop(0,'미래 장소','산책',37.5,127.0)])}}
 with sync_playwright() as p:
     # ---- favorites / blocked ----
-    b,pg=mk(p,seed(PAST)); pg.click('#home [data-go="cal"]'); pg.click('[data-day="%s"]'%D(-10)); pg.wait_for_timeout(300)
+    b,pg=mk(p,seed(PAST)); pg.click('#tabs [data-go="cal"]'); pg.click('[data-day="%s"]'%D(-10)); pg.wait_for_timeout(300)
     ok(pg.locator('.mk').count()==4,'fav/block buttons on both stops')
     pg.click('.mk[aria-label="성수 카페 즐겨찾기"]'); pg.wait_for_timeout(200)
     pl=[v for v in store(pg)['E'].values() if v['kind']=='place']
@@ -41,7 +41,7 @@ with sync_playwright() as p:
     ok('성수 카페' in pg.inner_text('.vstops') and '★' in pg.inner_text('.vstops'),'badge shown on favorited stop')
     ok(not pg.errs,'no errors %s'%pg.errs); b.close()
     # ---- route screen ----
-    E=dict(PAST); b,pg=mk(p,seed(E)); pg.click('#home [data-go="route"]'); pg.wait_for_timeout(300)
+    E=dict(PAST); b,pg=mk(p,seed(E)); pg.click('#tabs [data-go="route"]'); pg.wait_for_timeout(300)
     st=pg.inner_text('#rtStats'); ok('2\n함께한 데이트' in st and '3\n다녀간 곳' in st,'stats count only past visits, unique places: '+st.replace('\n',' | ')[:90])
     ok('80,000원' in st,'spend total is 80,000원 (4 stops x 20,000)')
     ok(pg.locator('#rtLine .c.x').count()==2,'repeat visit (성수 카페) drawn as 환승역 twice: %d'%pg.locator('#rtLine .c.x').count())
@@ -49,7 +49,7 @@ with sync_playwright() as p:
     ok('성수동 4번' in st,'top area: '+st.split('자주')[-1][:20])
     pg.screenshot(path='/tmp/p5_route.png',full_page=True); ok(not pg.errs,'no errors %s'%pg.errs); b.close()
     # ---- photos ----
-    b,pg=mk(p,seed(PAST)); pg.click('#home [data-go="cal"]'); pg.click('[data-day="%s"]'%D(-10)); pg.wait_for_timeout(300)
+    b,pg=mk(p,seed(PAST)); pg.click('#tabs [data-go="cal"]'); pg.click('[data-day="%s"]'%D(-10)); pg.wait_for_timeout(300)
     pg.evaluate("""()=>{const c=document.createElement('canvas');c.width=1600;c.height=1200;const x=c.getContext('2d');const im=x.createImageData(1600,1200);for(let i=0;i<im.data.length;i++)im.data[i]=(i%4==3)?255:Math.random()*255;x.putImageData(im,0,0);
       return new Promise(r=>c.toBlob(bl=>{const f=new File([bl],'a.jpg',{type:'image/jpeg'});const dt=new DataTransfer();dt.items.add(f);const i=document.getElementById('photoIn');i.setAttribute('data-v','v1');i.files=dt.files;i.dispatchEvent(new Event('change',{bubbles:true}));r(bl.size)},'image/jpeg',.95));}""")
     pg.wait_for_timeout(1200)
@@ -62,7 +62,7 @@ with sync_playwright() as p:
     ok(pg.locator('.pth').count()==0 and any(v['kind']=='photo' and v['body'].get('deleted') for v in store(pg)['E'].values()),'deleted as tombstone')
     ok(not pg.errs,'no errors %s'%pg.errs); b.close()
     evil=dict(PAST); evil['phx']={'kind':'photo','u':2,'body':{'v':'v1','t':'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=','at':1}}; evil['phy']={'kind':'photo','u':2,'body':{'v':'v1','t':'javascript:alert(1)','at':2}}
-    b,pg=mk(p,seed(evil)); pg.click('#home [data-go="cal"]'); pg.click('[data-day="%s"]'%D(-10)); pg.wait_for_timeout(300)
+    b,pg=mk(p,seed(evil)); pg.click('#tabs [data-go="cal"]'); pg.click('[data-day="%s"]'%D(-10)); pg.wait_for_timeout(300)
     ok(pg.locator('.pth').count()==0,'non-JPEG data URLs from sync are never rendered'); b.close()
     # ---- anniversary suggestion from favorites ----
     F={'pa':{'kind':'place','u':1,'body':{'name':'성수 카페','kind':'카페','area':'성수동','lat':37.5446,'lng':127.0557,'mark':'fav'}},

@@ -30,13 +30,17 @@ Items kind = `visit` | `special` | `prefs` | `place` | `photo`; last-write-wins 
 Auto special dates from `since` (day 1 = since): 100…1000 days, 1500/2000/2500/3000 days, 1–40주년, plus seasonal
 (1/1, 2/14, 3/14, 5/14, 11/11, 12/24, 12/25). Custom specials can repeat yearly.
 
-## Design rules ("노선도" v3)
-Red route line + station circles, Do Hyeon (display) + IBM Plex Sans KR (body), lilac-gray paper + plum ink.
-390px mobile-first, 44px min touch targets, visible focus, prefers-reduced-motion, dark mode via CSS tokens on :root.
-API keys only in Vercel env vars (except Kakao JS key, domain-restricted). Ask the owner before adding paid services.
+## Design rules ("노선도 for two" — full system in DESIGN.md; follow it for any UI change)
+Red route line + ringed station dots only where there is a sequence; Do Hyeon (display) + IBM Plex Sans KR (body); lilac-gray paper + plum ink.
+Tokens on :root (colour, type scale, 4-pt spacing, radii 8/12/16/pill, control heights 44/52/56) with dark values via prefers-color-scheme and [data-theme].
+Flat cards (surface + 1px `--hair`), shadows only on floating layers. One accent (line red); `--sun` yellow only for anniversaries/hot badges.
+Icons: one inline SVG sprite (`#i-*`, JS helper `ico(name)`), no emoji in UI chrome. Bottom tab bar `#tabs` (home/plan/rec/cal/route; hidden in onboarding, synced in `show()` via `syncTabs`).
+Tabs resume the current course; only the home CTA starts a fresh one (home shows a "만들던 코스" resume card when stops exist).
+390px mobile-first, 44px min touch targets, visible focus, prefers-reduced-motion. ≥960px: planner is two columns (sticky map). Screens stay a 440px column.
+API keys only in Vercel env vars. Ask the owner before adding paid services.
 
 ## Tests
-`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py && python3 p4.py && python3 p5.py && python3 p6.py && node weather.test.js && node sync.test.js` (Playwright; mocks all /api routes via `mock.js` + in-memory
+`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py && python3 p4.py && python3 p5.py && python3 p6.py && python3 p7.py && node weather.test.js && node sync.test.js` (Playwright; mocks all /api routes via `mock.js` + in-memory
 couple/sync). All checks currently pass.
 
 ## Roadmap

@@ -21,7 +21,7 @@ def mk(p,sd,url="http://t.local/"):
 ok=lambda c,m:print(('PASS ' if c else 'FAIL ')+m)
 with sync_playwright() as p:
     # ---- voting ----
-    b,pg=mk(p,seed(0)); pg.click('#home [data-go="cal"]'); pg.wait_for_timeout(400)
+    b,pg=mk(p,seed(0)); pg.click('#tabs [data-go="cal"]'); pg.wait_for_timeout(400)
     ok(pg.locator('.vbtn').count()==4,'two vote buttons per stop: %d'%pg.locator('.vbtn').count())
     pg.click('[data-vote="v1|0|1"]'); pg.wait_for_timeout(200)
     ok(pg.get_attribute('[data-vote="v1|0|1"]','aria-pressed')=='true','♥ pressed')
@@ -40,7 +40,7 @@ with sync_playwright() as p:
     ok(dc2['E']['v1']['body']['stops'][1]['votes']=={'0':1},'votes survive course edit + re-save')
     ok(not pg.errs,'no page errors %s'%pg.errs); b.close()
     # partner (me=1) sees the other vote and votes independently
-    b,pg=mk(p,seed(1,dc2)); pg.click('#home [data-go="cal"]'); pg.wait_for_timeout(400)
+    b,pg=mk(p,seed(1,dc2)); pg.click('#tabs [data-go="cal"]'); pg.wait_for_timeout(400)
     ok('지우 ♥' in pg.inner_text('.vstops'),'partner sees 지우 ♥')
     pg.click('[data-vote="v1|1|-1"]'); pg.wait_for_timeout(200); pg.screenshot(path='/tmp/p3_votes.png',full_page=True)
     dc3=json.loads(pg.evaluate("localStorage.getItem('dc_data')"))

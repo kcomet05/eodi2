@@ -106,7 +106,7 @@ with sync_playwright() as p:
     pg2.click('#whoW .chip >> nth=1'); pg2.wait_for_timeout(1500)
     ok(pg2.is_visible('#home') and '100일' in pg2.inner_text('#nextSp'),'partner home has shared specials')
     ok(not pg2.is_visible('#prefNudge'),'partner got prefs from shared data')
-    pg2.click('#home [data-go=cal]'); pg2.wait_for_timeout(300)
+    pg2.click('#tabs [data-go=cal]'); pg2.wait_for_timeout(300)
     pg2.click('[data-day="%s"]'%D(-3)); pg2.wait_for_timeout(200)
     ok('성수 데이트' in pg2.inner_text('#dayPanel') and pg2.input_value('[data-vnote]')=='우리 첫 전시!','partner sees the same visit + note')
     pg2.fill('[data-vnote]','하준: 나도 좋았어'); pg2.keyboard.press('Tab'); pg2.wait_for_timeout(2500)
@@ -147,6 +147,6 @@ with sync_playwright() as p:
     # ---------- J. dark 360 screenshots ----------
     b4,ctx4,pg4=mk(p,w=360,h=780,dark=True,seed=seed+"localStorage.setItem('dc_data',JSON.stringify({E:{prefs:{kind:'prefs',u:1,body:{likes:['카페'],budget:80000}},v1:{kind:'visit',u:2,body:{date:'%s',title:'성수 데이트',note:'좋았다',by:0,tm:{s:840,e:1260},stops:[{id:'a',name:'카페 하나',kind:'카페',area:'성수동',lat:37.544,lng:127.056,stay:60,time:'14:00',until:'15:00',cost:15000,note:'라떼'},{id:'b',name:'전시 둘',kind:'전시',area:'성수동',lat:37.546,lng:127.058,stay:80,time:'15:20',until:'16:40',cost:30000,note:''}]}}},dirty:{},since:0}));"%D(-2))
     pg4.goto("http://t.local/"); pg4.wait_for_timeout(500); pg4.screenshot(path='/tmp/p2_dark_home.png',full_page=True)
-    pg4.click('#home [data-go=cal]'); pg4.wait_for_timeout(300); pg4.click('[data-day="%s"]'%D(-2)); pg4.wait_for_timeout(200); pg4.screenshot(path='/tmp/p2_dark_cal.png',full_page=True)
+    pg4.click('#tabs [data-go=cal]'); pg4.wait_for_timeout(300); pg4.click('[data-day="%s"]'%D(-2)); pg4.wait_for_timeout(200); pg4.screenshot(path='/tmp/p2_dark_cal.png',full_page=True)
     ok(pg4.evaluate("document.documentElement.scrollWidth<=360"),'no horizontal scroll at 360')
     ok(not pg4.errs,'no errors %s'%pg4.errs); b4.close()
