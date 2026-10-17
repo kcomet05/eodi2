@@ -2,7 +2,7 @@
 
 Couples' date-planning web app. Korean UI, mobile-first. Live at https://date-course-kcomet.vercel.app
 (Vercel project `date-course`, team `kcomet`). Production currently runs an OLDER build (Phase 1 only);
-this repo holds the newer, tested build (calendar + prefs + budget) that still needs deploying.
+every push to `main` auto-deploys to production via the GitHub integration (repo `kcomet05/eodi2`).
 
 ## Stack
 - `index.html` — the whole client: one file, one IIFE, no build step. Naver Maps v3 (client id `2qvv05vrkk`, public,
@@ -35,12 +35,15 @@ Red route line + station circles, Do Hyeon (display) + IBM Plex Sans KR (body), 
 API keys only in Vercel env vars (except Kakao JS key, domain-restricted). Ask the owner before adding paid services.
 
 ## Tests
-`cd tests && python3 p2.py && python3 p1_reg.py` (Playwright; mocks all /api routes via `mock.js` + in-memory
+`cd tests && python3 p2.py && python3 p1_reg.py && python3 p3.py` (Playwright; mocks all /api routes via `mock.js` + in-memory
 couple/sync). All checks currently pass.
 
 ## Roadmap
 - Phase 1 couple setup + Neon — done. Calendar / save course / notes / insert-between / prefs / budget / special dates — done, NOT yet deployed.
-- Phase 2 shared course link, ♥/✕ voting, KakaoTalk share — needs the Kakao JS key from the owner.
+- Phase 2 — done. ♥/✕ vote per stop per person (`stops[i].votes={0|1:1|-1}` inside the visit, synced like notes; shown in the calendar day panel).
+  Share link `/#c=<base64url JSON>` encodes title + stops only (no couple code, notes, or votes); recipient sees a sheet and can load it into the planner.
+  Hash input is untrusted: validated (kind whitelist, Korea lat/lng box, ≤12 stops, escaped on render). Native share sheet / copy fallback.
+  KakaoTalk share intentionally dropped by the owner — no Kakao JS key needed.
 - Phase 3 live-date mode, weather (ask owner: KMA vs OpenWeather + key), opening hours, last-train note.
 - Phase 4 diary photos, favorites/blocked, "우리의 노선도" screen, anniversary course suggestions.
 - Phase 5 drag reorder, geolocation start.

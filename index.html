@@ -254,6 +254,14 @@ dialog.sheet h2{font-size:22px}
 .vstop .n{width:26px;height:26px;border-radius:50%;background:var(--card);color:var(--fg);border:4px solid var(--accent);font-family:var(--display);font-size:12px;display:grid;place-items:center}
 .vstop b{font-family:var(--display);font-weight:400;font-size:16px;overflow-wrap:anywhere}
 .vstop small{display:block;color:var(--muted);font-size:12px}
+.votes{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
+.vbtn{min-height:44px;min-width:44px;padding:0 14px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--fg);font-size:14px}
+.vbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.vp{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.shl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.shl li{display:flex;flex-direction:column;gap:2px}
+.shl b{font-family:var(--display);font-weight:400;font-size:16px;overflow-wrap:anywhere}
+.shl small{color:var(--muted);font-size:12px}
 .note-in{width:100%;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit;font-size:14px;padding:10px;resize:vertical;min-height:44px;margin-top:6px}
 .vcard>label{font-family:var(--display);font-size:15px}
 .upr{display:flex;align-items:center;gap:10px;min-height:48px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--soft);padding:4px 0}
@@ -437,6 +445,12 @@ dialog.sheet h2{font-size:22px}
 <p class="err" id="errSave" role="alert"></p>
 <button class="btn primary small" type="submit">저장하기</button>
 </form>
+</dialog>
+<dialog class="sheet" id="shareSheet" aria-labelledby="shT">
+<div class="sheet-h"><h2 id="shT">공유받은 코스</h2><button class="xbtn" type="button" id="shX" aria-label="닫기">×</button></div>
+<p class="syncnote" id="shInfo"></p>
+<ul class="shl" id="shList"></ul>
+<button class="btn primary small" type="button" id="shUse">내 플래너에 담기</button>
 </dialog>
 <dialog class="sheet" id="spSheet" aria-labelledby="spT">
 <form id="spForm" novalidate method="dialog">
@@ -1017,16 +1031,63 @@ $('saveInfo').textContent=stops.length+'곳 · 예상 비용 '+won(tot)+(PLAN.ed
 openDlg('saveSheet');
 }
 function visitBody(date,title,note){
-return {date:date,title:title,note:note,by:CP?CP.me:0,tm:{s:TM.s,e:TM.e},stops:stops.map(function(s,i){var t=stopTime(i);return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,stay:t.stay,time:t.time,until:t.until,cost:costOf(s),note:s.note||''};})};
+return {date:date,title:title,note:note,by:CP?CP.me:0,tm:{s:TM.s,e:TM.e},stops:stops.map(function(s,i){var t=stopTime(i);return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,stay:t.stay,time:t.time,until:t.until,cost:costOf(s),note:s.note||'',votes:s.votes||{}};})};
 }
 function editVisit(id){
 var it=DATA.E[id],v=it&&it.body;if(!v||v.deleted)return;
 demoToken++;
 PLAN={editId:id,date:v.date,title:v.title||'',note:v.note||''};
-stops=(v.stops||[]).map(function(s){return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,x:wx(s.lng),y:wy(s.lat),time:s.time||'',stay:s.stay||0,cost:s.cost,note:s.note||'',born:performance.now()-5000};});
+stops=(v.stops||[]).map(function(s){return {id:s.id,name:s.name,kind:s.kind,area:s.area||'',lat:s.lat,lng:s.lng,x:wx(s.lng),y:wy(s.lat),time:s.time||'',stay:s.stay||0,cost:s.cost,note:s.note||'',votes:s.votes||{},born:performance.now()-5000};});
 if(v.tm&&v.tm.e>v.tm.s){TM.s=v.tm.s;TM.e=v.tm.e;syncTime();}
 $('planTitle').textContent=(v.title||'데이트')+' 고치기';
 show('plan');
+}
+/* ---- ♥/✕ votes per stop (stored in the visit, synced to the partner) and share links (course encoded in the URL hash, no server) ---- */
+function castVote(k){
+var p=k.split('|'),it=DATA.E[p[0]],val=+p[2];
+if(!CP||!it||!it.body||it.body.deleted||!it.body.stops[+p[1]]||(val!==1&&val!==-1))return;
+var b=JSON.parse(JSON.stringify(it.body)),s=b.stops[+p[1]];
+s.votes=s.votes||{};
+if(s.votes[CP.me]===val)delete s.votes[CP.me];else s.votes[CP.me]=val;
+putItem('visit',p[0],b);renderCal();
+var nb=document.querySelector('[data-vote="'+k+'"]');if(nb)nb.focus();
+}
+var SH_KINDS=Object.keys(STAY);
+function b64e(str){return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function b64d(str){str=str.replace(/-/g,'+').replace(/_/g,'/');while(str.length%4)str+='=';return decodeURIComponent(escape(atob(str)));}
+function shareLink(v){
+var o={t:v.title||'데이트',s:(v.stops||[]).slice(0,12).map(function(s){return [s.name,s.kind,s.area||'',Math.round(s.lat*1e5)/1e5,Math.round(s.lng*1e5)/1e5,s.stay||0,s.cost||0];})};
+return location.origin+'/#c='+b64e(JSON.stringify(o));
+}
+function parseShare(h){
+var m=String(h||'').match(/^#c=([A-Za-z0-9_-]{1,6000})$/);if(!m)return null;
+try{
+var o=JSON.parse(b64d(m[1])),out=[];
+if(!o||!Array.isArray(o.s))return null;
+o.s.slice(0,12).forEach(function(r){
+if(!Array.isArray(r))return;
+var name=cleanName(r[0]).slice(0,30),kind=r[1],lat=+r[3],lng=+r[4],stay=Math.round(+r[5]),cost=Math.round(+r[6]);
+if(!name||SH_KINDS.indexOf(kind)<0||!(lat>=33&&lat<=39)||!(lng>=124&&lng<=132))return;
+out.push({id:'sh'+hash(name+lat.toFixed(4)+lng.toFixed(4)),name:name,kind:kind,area:cleanName(r[2]).slice(0,20),lat:lat,lng:lng,stay:(stay>=10&&stay<=480)?stay:0,cost:(cost>=0&&cost<=1e7)?cost:0});
+});
+return out.length?{title:cleanName(o.t).slice(0,30)||'공유받은 데이트',stops:out}:null;
+}catch(e){return null;}
+}
+function shareVisit(id){
+var it=DATA.E[id],v=it&&it.body;if(!v||v.deleted||!(v.stops||[]).length)return;
+var link=shareLink(v);
+if(navigator.share){navigator.share({title:v.title||'데이트',text:(v.title||'데이트')+' 코스',url:link}).catch(function(){});return;}
+if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(link).then(function(){toast('링크를 복사했어요');},function(){window.prompt('링크를 복사해 주세요',link);});
+else window.prompt('링크를 복사해 주세요',link);
+}
+var SHARED=null;
+function openShared(sc){
+SHARED=sc;
+$('shT').textContent=sc.title;
+var tot=0;sc.stops.forEach(function(s){tot+=s.cost;});
+$('shInfo').textContent=sc.stops.length+'곳 · 예상 비용 '+won(tot);
+$('shList').innerHTML=sc.stops.map(function(s,i){return '<li><b>'+(i+1)+'. '+esc(s.name)+'</b><small>'+esc(s.kind)+(s.area?' · '+esc(s.area):'')+' · '+won(s.cost)+'</small></li>';}).join('');
+openDlg('shareSheet');
 }
 /* calendar */
 var CAL={m:'',sel:'',armed:'',stale:false};
@@ -1049,6 +1110,11 @@ h+='<button type="button" class="day'+(ds.slice(0,7)===CAL.m?'':' out')+(ds===t?
 $('calGrid').innerHTML=h;
 renderDayPanel();renderUpcoming();
 }
+function voteHTML(v,s,i){
+if(!CP||(CP.me!==0&&CP.me!==1))return '';
+var vt=s.votes||{},my=vt[CP.me],o=1-CP.me,ov=vt[o],k=esc(v.id)+'|'+i+'|';
+return '<div class="votes" role="group" aria-label="'+esc(s.name)+' 투표"><button type="button" class="vbtn" data-vote="'+k+'1" aria-pressed="'+(my===1)+'" aria-label="'+esc(s.name)+' 좋아요">♥ 좋아요</button><button type="button" class="vbtn" data-vote="'+k+'-1" aria-pressed="'+(my===-1)+'" aria-label="'+esc(s.name)+' 별로예요">✕ 별로예요</button>'+(ov?'<span class="vp">'+esc(CP.names[o])+' '+(ov===1?'♥':'✕')+'</span>':'')+'</div>';
+}
 function renderDayPanel(){
 var d=CAL.sel,t=kstToday(),sps=specialsBetween(d,d),vs=visitsOn(d),h='<h3>'+esc(fmtDate(d))+(d===t?' · 오늘':'')+'</h3>';
 sps.forEach(function(x){
@@ -1058,10 +1124,10 @@ vs.forEach(function(v){
 var st=d<t?'다녀온 데이트':(d===t?'오늘 데이트':'예정된 데이트');
 h+='<article class="vcard"><h4>'+esc(v.title||'데이트')+'</h4><p class="sub2">'+st+' · '+(v.stops||[]).length+'곳 · 비용 '+won(vTotal(v))+(v.by===0||v.by===1?(CP?' · '+esc(CP.names[v.by])+' 기록':''):'')+'</p><ol class="vstops">';
 (v.stops||[]).forEach(function(s,i){
-h+='<li class="vstop"><span class="n">'+(i+1)+'</span><div><b>'+esc(s.name)+'</b><small>'+esc(s.time||'')+(s.until?' ~ '+esc(s.until):'')+' · '+esc(s.kind)+' · '+won(s.cost)+'</small><label class="sr" for="sn-'+esc(v.id)+'-'+i+'">'+esc(s.name)+' 메모</label><textarea class="note-in" id="sn-'+esc(v.id)+'-'+i+'" rows="2" maxlength="300" data-snote="'+esc(v.id)+'|'+i+'" placeholder="이 장소 메모 (예: 파스타가 맛있었어요)">'+esc(s.note||'')+'</textarea></div></li>';
+h+='<li class="vstop"><span class="n">'+(i+1)+'</span><div><b>'+esc(s.name)+'</b><small>'+esc(s.time||'')+(s.until?' ~ '+esc(s.until):'')+' · '+esc(s.kind)+' · '+won(s.cost)+'</small>'+voteHTML(v,s,i)+'<label class="sr" for="sn-'+esc(v.id)+'-'+i+'">'+esc(s.name)+' 메모</label><textarea class="note-in" id="sn-'+esc(v.id)+'-'+i+'" rows="2" maxlength="300" data-snote="'+esc(v.id)+'|'+i+'" placeholder="이 장소 메모 (예: 파스타가 맛있었어요)">'+esc(s.note||'')+'</textarea></div></li>';
 });
 h+='</ol><label for="vn-'+esc(v.id)+'">이 날의 메모</label><textarea class="note-in" id="vn-'+esc(v.id)+'" rows="3" maxlength="1000" data-vnote="'+esc(v.id)+'" placeholder="오늘 하루는 어땠나요?">'+esc(v.note||'')+'</textarea>'+
-'<div class="row"><button type="button" class="btn ghost small" data-editv="'+esc(v.id)+'" aria-label="코스 고치기, 장소 추가">코스 고치기</button><button type="button" class="danger" data-delv="'+esc(v.id)+'">'+(CAL.armed===v.id?'정말 지울까요?':'삭제')+'</button></div></article>';
+'<div class="row"><button type="button" class="btn ghost small" data-editv="'+esc(v.id)+'" aria-label="코스 고치기, 장소 추가">코스 고치기</button><button type="button" class="btn ghost small" data-sharev="'+esc(v.id)+'">링크 공유</button></div><button type="button" class="danger" data-delv="'+esc(v.id)+'">'+(CAL.armed===v.id?'정말 지울까요?':'삭제')+'</button></article>';
 });
 if(!vs.length)h+='<p class="syncnote">'+(d<t?'이 날의 데이트 기록이 아직 없어요. 다녀온 곳을 남겨 보세요.':'아직 계획한 데이트가 없어요.')+'</p>';
 h+='<div class="row"><button type="button" class="btn primary small" data-newday="'+d+'">'+(d<t?'다녀온 곳 기록':'데이트 만들기')+'</button><button type="button" class="btn ghost small" data-recday="'+d+'">코스 추천받기</button></div><button type="button" class="btn ghost small" data-addsp="'+d+'">＋ 이 날을 기념일로 추가</button>';
@@ -1093,6 +1159,16 @@ if((k=t.getAttribute&&t.getAttribute('data-snote'))){var p=k.split('|'),it2=DATA
 });
 $('cal').addEventListener('focusout',function(){if(CAL.stale)setTimeout(function(){var a=document.activeElement;if(CAL.stale&&!(a&&a.classList&&a.classList.contains('note-in')))renderCal();},0);});
 $('saveX').addEventListener('click',function(){closeDlg('saveSheet');});
+$('shX').addEventListener('click',function(){closeDlg('shareSheet');});
+$('shareSheet').addEventListener('click',function(e){if(e.target===this)closeDlg('shareSheet');});
+$('shUse').addEventListener('click',function(){
+if(!SHARED)return;
+demoToken++;
+stops=SHARED.stops.map(function(s){return {id:s.id,name:s.name,kind:s.kind,area:s.area,lat:s.lat,lng:s.lng,x:wx(s.lng),y:wy(s.lat),time:'',stay:s.stay,cost:s.cost,note:'',born:performance.now()-5000};});
+PLAN={editId:null,date:'',title:SHARED.title,note:''};
+$('planTitle').textContent=SHARED.title;
+closeDlg('shareSheet');show('plan');
+});
 $('spX').addEventListener('click',function(){closeDlg('spSheet');});
 ['saveSheet','spSheet'].forEach(function(id){$(id).addEventListener('click',function(e){if(e.target===this)closeDlg(id);});});
 $('saveForm').addEventListener('submit',function(e){
@@ -1129,6 +1205,8 @@ if((el=t.closest('[data-newday]'))){v=el.getAttribute('data-newday');startPlan(v
 if((el=t.closest('[data-recday]'))){PLAN={editId:null,date:el.getAttribute('data-recday'),title:'',note:''};show('rec');return;}
 if((el=t.closest('[data-addsp]'))){openSp(el.getAttribute('data-addsp'));return;}
 if((el=t.closest('[data-editv]'))){editVisit(el.getAttribute('data-editv'));return;}
+if((el=t.closest('[data-vote]'))){castVote(el.getAttribute('data-vote'));return;}
+if((el=t.closest('[data-sharev]'))){shareVisit(el.getAttribute('data-sharev'));return;}
 if((el=t.closest('[data-delv]'))){
 v=el.getAttribute('data-delv');
 if(CAL.armed!==v){CAL.armed=v;renderCal();var nb=document.querySelector('[data-delv="'+v+'"]');if(nb)nb.focus();return;}
@@ -1328,6 +1406,9 @@ var m=location.search.match(/[?&]join=([A-Za-z0-9]{8})(?![A-Za-z0-9])/),jc=m?m[1
 if(m){try{history.replaceState(null,'',location.pathname);}catch(e){}}
 if(!CP){openSetup(!!jc);if(jc){$('jcode').value=jc;joinWith(jc);}}
 else{renderCP();renderInvite();setTimeout(syncCP,300);}
+var sc=parseShare(location.hash);
+if(location.hash.indexOf('#c=')===0){try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}}
+if(sc)setTimeout(function(){openShared(sc);},0);
 })();
 
 document.addEventListener('click',function(e){
